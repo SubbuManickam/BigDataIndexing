@@ -9,28 +9,6 @@ import java.util.Base64;
 
 @Service
 public class RedisService {
-    private final StringRedisTemplate redisTemplate;
-
-    public RedisService(StringRedisTemplate redisTemplate) {
-        this.redisTemplate = redisTemplate;
-    }
-
-    public void save(String key, String value) {
-        redisTemplate.opsForValue().set(key, value);
-    }
-
-    public String get(String key) {
-        return redisTemplate.opsForValue().get(key);
-    }
-
-    public void delete(String key) {
-        redisTemplate.delete(key);
-    }
-
-    public boolean exists(String key) {
-        return Boolean.TRUE.equals(redisTemplate.hasKey(key));
-    }
-
     public String generateETag(String input) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");

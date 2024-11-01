@@ -23,9 +23,9 @@ public class JsonValidatorService {
                     "planCostShares": {
                       "type": "object",
                       "properties": {
-                        "deductible": { "type": "integer" },
+                        "deductible": { "type": "number" },
                         "_org": { "type": "string" },
-                        "copay": { "type": "integer" },
+                        "copay": { "type": "number" },
                         "objectId": { "type": "string" },
                         "objectType": { "type": "string" }
                       },
@@ -49,9 +49,9 @@ public class JsonValidatorService {
                           "planserviceCostShares": {
                             "type": "object",
                             "properties": {
-                              "deductible": { "type": "integer" },
+                              "deductible": { "type": "number" },
                               "_org": { "type": "string" },
-                              "copay": { "type": "integer" },
+                              "copay": { "type": "number" },
                               "objectId": { "type": "string" },
                               "objectType": { "type": "string" }
                             },
