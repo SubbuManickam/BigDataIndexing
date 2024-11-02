@@ -116,22 +116,13 @@ public class JsonController {
     }
 
     @PatchMapping("/{id}")
-    public ResponseEntity<?> updatePlan(@PathVariable String id, @RequestBody String jsonPayload, @RequestHeader(value = "If-Match", required = false) String ifMatch) {
+    public ResponseEntity<?> updatePlan(@PathVariable String id, @RequestBody Map<String, Object> patchData, @RequestHeader(value = "If-Match", required = false) String ifMatch) {
         try {
             Set<String> errors = new HashSet<>();
-            Plan plan = objectMapper.readValue(jsonPayload, Plan.class);
-
-            if(!id.equals(plan.getObjectId())) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Plan id mismatch");
-            }
 
             Map<String, String> existingData = jedis.hgetAll("plan:" + id);
             if (existingData.isEmpty()) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Plan not found");
-            }
-
-            if(!jsonValidatorService.validate(jsonPayload, errors)) {
-                return ResponseEntity.badRequest().body(errors);
             }
 
             String currentETag = redisService.generateETag(existingData.get(id));
@@ -139,18 +130,50 @@ public class JsonController {
                 return ResponseEntity.status(HttpStatus.PRECONDITION_FAILED).body("ETag mismatch. Plan has been changed.");
             }
 
-            Map<String,String> hash = new HashMap<>();
-            hash.put(id, jsonPayload);
-            jedis.del("plan:" + id);
-            jedis.hmset("plan:" + id, hash);
+            Map<String, Object> existingPlanMap = objectMapper.readValue(existingData.get(id), Map.class);
+            appendPatchData(existingPlanMap, patchData);
 
-            String etag = redisService.generateETag(jsonPayload);
+            Plan updatedPlan = objectMapper.convertValue(existingPlanMap, Plan.class);
+            String updatedJsonPayload = objectMapper.writeValueAsString(updatedPlan);
+
+            Map<String,String> hash = new HashMap<>();
+            hash.put(id, updatedJsonPayload);
+            jedis.hset("plan:" + id, hash);
+
+            String etag = redisService.generateETag(updatedJsonPayload);
             HttpHeaders headers = new HttpHeaders();
             headers.set("ETag", etag);
-            return new ResponseEntity<>(plan, headers, HttpStatus.OK);
+            return new ResponseEntity<>(updatedPlan, headers, HttpStatus.OK);
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error updating plan");
+        }
+    }
+
+    private void appendPatchData(Map<String, Object> existingData, Map<String, Object> patchData) {
+        try {
+            for (Map.Entry<String, Object> entry : patchData.entrySet()) {
+                String key = entry.getKey();
+                Object patchValue = entry.getValue();
+
+                if (existingData.containsKey(key) && existingData.get(key) instanceof List && patchValue instanceof List) {
+                    List<Object> existingList = (List<Object>) existingData.get(key);
+                    List<Object> patchList = (List<Object>) patchValue;
+                    existingList.addAll(patchList);
+                }
+
+                else if (existingData.containsKey(key) && existingData.get(key) instanceof Map && patchValue instanceof Map) {
+                    Map<String, Object> existingMap = (Map<String, Object>) existingData.get(key);
+                    Map<String, Object> patchMap = (Map<String, Object>) patchValue;
+                    appendPatchData(existingMap, patchMap);
+                }
+
+                else {
+                    existingData.put(key, patchValue);
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 }
